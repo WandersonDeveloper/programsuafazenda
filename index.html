@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>The Farmer Was Replaced — 3D</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+    }
+  }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+</head>
+<body>
+
+  <!-- ═══════════════ MENU PRINCIPAL ═══════════════ -->
+  <div id="main-menu" class="menu-overlay">
+    <div class="menu-bg-anim"></div>
+    <div class="menu-box">
+      <div class="menu-logo">
+        <span class="menu-emoji">🚜</span>
+        <h1>The Farmer<br><span>Was Replaced</span></h1>
+        <p class="menu-sub">Programe seus drones. Cultive. Domine.</p>
+      </div>
+      <div class="menu-btns">
+        <button class="menu-btn primary" data-action="play">▶ Jogar</button>
+        <button class="menu-btn" data-action="howto">📖 Como Jogar</button>
+        <button class="menu-btn" data-action="settings">⚙ Configurações</button>
+        <button class="menu-btn" data-action="credits">🏆 Créditos</button>
+        <button class="menu-btn danger" data-action="reset">🗑 Apagar Save</button>
+      </div>
+      <div class="menu-footer">v1.0 · feito com 💚 e three.js</div>
+    </div>
+
+    <!-- Submenus -->
+    <div id="menu-howto" class="menu-sub-panel hidden">
+      <h2>📖 Como Jogar</h2>
+      <ul>
+        <li>Você não controla o drone diretamente — você <b>programa</b> ele.</li>
+        <li>Escreva código no editor e clique <b>▶ Executar</b>.</li>
+        <li>Comandos básicos: <code>move()</code>, <code>turn_left()</code>, <code>turn_right()</code>, <code>plant()</code>, <code>harvest()</code>, <code>till()</code>.</li>
+        <li>Compre o <b>Drone B</b> para automação: <code>auto_b()</code>, <code>auto_b_madeira()</code>.</li>
+        <li>Venda colheitas no silo para comprar upgrades e expandir a fazenda.</li>
+        <li>Pressione <kbd>ESC</kbd> a qualquer hora para abrir o menu.</li>
+      </ul>
+      <button class="menu-btn" data-action="back">← Voltar</button>
+    </div>
+
+    <div id="menu-settings" class="menu-sub-panel hidden">
+      <h2>⚙ Configurações</h2>
+      <label class="menu-row">
+        <span>🔊 Volume</span>
+        <input type="range" id="menu-volume" min="0" max="100" value="70">
+      </label>
+      <label class="menu-row">
+        <span>🌗 Tema escuro</span>
+        <input type="checkbox" id="menu-dark" checked>
+      </label>
+      <label class="menu-row">
+        <span>🎯 Mostrar dicas</span>
+        <input type="checkbox" id="menu-hints" checked>
+      </label>
+      <button class="menu-btn" data-action="back">← Voltar</button>
+    </div>
+
+    <div id="menu-credits" class="menu-sub-panel hidden">
+      <h2>🏆 Créditos</h2>
+      <p><b>Inspirado em:</b> The Farmer Was Replaced — por <i>Slogo</i></p>
+      <p><b>Engine:</b> three.js</p>
+      <p><b>Persistência:</b> sql.js (SQLite)</p>
+      <p><b>Modelos 3D:</b> Poliigon, low-poly community</p>
+      <p><b>Desenvolvido por:</b> Wanderson Felipe 🌱</p>
+      <button class="menu-btn" data-action="back">← Voltar</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MENU DE PAUSA ═══════════════ -->
+  <div id="pause-menu" class="menu-overlay hidden">
+    <div class="menu-box small">
+      <h2>⏸ Pausado</h2>
+      <button class="menu-btn primary" data-action="resume">▶ Continuar</button>
+      <button class="menu-btn" data-action="howto-pause">📖 Como Jogar</button>
+      <button class="menu-btn" data-action="settings-pause">⚙ Configurações</button>
+      <button class="menu-btn danger" data-action="quit">🏠 Menu Principal</button>
+    </div>
+  </div>
+
+  <canvas id="game-canvas"></canvas>
+
+  <!-- ── Painel Direito Único ── -->
+  <div id="right-panel" class="float-panel">
+    <div class="drag-handle" id="right-handle">&#9776; The Farmer Was Replaced</div>
+
+    <!-- Stats -->
+    <div id="stats-row">
+      <div class="stat-item">
+        <span class="stat-icon">&#127807;</span>
+        <div class="stat-val" id="harvest-count">0</div>
+        <div class="stat-lbl">colhido</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-icon">&#128205;</span>
+        <div class="stat-val" id="farm-size">1&#215;1</div>
+        <div class="stat-lbl">fazenda</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-icon">&#128308;</span>
+        <div class="stat-val" id="next-expand">3</div>
+        <div class="stat-lbl">prox exp.</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-icon">&#9201;</span>
+        <div class="stat-val" id="tick-count">0</div>
+        <div class="stat-lbl">ticks</div>
+      </div>
+      <div class="stat-item speed-item">
+        <span class="stat-icon">&#9889;</span>
+        <input type="range" id="speed" min="1" max="20" value="6">
+        <div class="stat-lbl"><strong id="speed-label">6</strong>x vel.</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-icon">&#129689;</span>
+        <div class="stat-val" id="coin-count">0</div>
+        <div class="stat-lbl">moedas</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-icon">&#129717;</span>
+        <div class="stat-val" id="wood-count">0</div>
+        <div class="stat-lbl">madeira</div>
+      </div>
+    </div>
+
+    <!-- Barra de capacidade do drone -->
+    <div id="drone-bar" title="Clique para abrir o silo">
+      <div id="drone-bar-fill"></div>
+      <div id="drone-bar-label">&#128230; 0/8</div>
+    </div>
+
+    <!-- Comandos & Culturas (scrollável) -->
+    <div id="palette-body">
+      <!-- Seletor de cultura -->
+      <div id="crop-selector">
+        <div class="palette-group-label">&#127807; Cultura atual</div>
+        <div id="crop-btns" class="crop-row"></div>
+      </div>
+
+      <!-- Paleta de comandos -->
+      <div id="cmd-palette">
+        <div class="palette-group-label">&#128247; Movimento</div>
+        <div class="palette-row">
+          <button class="pal" data-code="move()"><span class="pal-icon">&#11014;</span><span class="pal-txt">move</span></button>
+          <button class="pal" data-code="turn_left()"><span class="pal-icon">&#8634;</span><span class="pal-txt">esq</span></button>
+          <button class="pal" data-code="turn_right()"><span class="pal-icon">&#8635;</span><span class="pal-txt">dir</span></button>
+        </div>
+        <div class="palette-group-label">&#10024; Mov. Avançado</div>
+        <div class="palette-row">
+          <button class="pal" data-code="fly()"><span class="pal-icon">&#11014;&#11014;</span><span class="pal-txt">voar</span></button>
+          <button class="pal" data-code="dive()"><span class="pal-icon">&#11015;&#11015;</span><span class="pal-txt">mergulh</span></button>
+          <button class="pal" data-code="spin()"><span class="pal-icon">&#11125;</span><span class="pal-txt">girar</span></button>
+          <button class="pal" data-code="flip()"><span class="pal-icon">&#128943;</span><span class="pal-txt">flip</span></button>
+          <button class="pal" data-code="wait()"><span class="pal-icon">&#8231;</span><span class="pal-txt">esperar</span></button>
+          <button class="pal" data-code="pouse()"><span class="pal-icon">&#128707;</span><span class="pal-txt">pouse</span></button>
+        </div>
+        <div class="palette-group-label">&#127806; Ações</div>
+        <div class="palette-row">
+          <button class="pal" data-code="till()"><span class="pal-icon">&#9874;</span><span class="pal-txt">arar</span></button>
+          <button class="pal" data-code="plant()"><span class="pal-icon">&#127807;</span><span class="pal-txt">plantar</span></button>
+          <button class="pal" data-code="harvest()"><span class="pal-icon">&#127806;</span><span class="pal-txt">colher</span></button>
+        </div>
+        <div class="palette-group-label">&#128225; Sensores</div>
+        <div class="palette-row">
+          <button class="pal" data-code="can_harvest()"><span class="pal-icon">&#128065;</span><span class="pal-txt">pronto?</span></button>
+          <button class="pal" data-code="get_type()"><span class="pal-icon">&#128270;</span><span class="pal-txt">tipo</span></button>
+          <button class="pal" data-code="sense()"><span class="pal-icon">&#128225;</span><span class="pal-txt">sensor</span></button>
+          <button class="pal" data-code="get_x()"><span class="pal-icon">&#8596;</span><span class="pal-txt">pos X</span></button>
+          <button class="pal" data-code="get_y()"><span class="pal-icon">&#8597;</span><span class="pal-txt">pos Y</span></button>
+          <button class="pal" data-code="get_world_size()"><span class="pal-icon">&#128205;</span><span class="pal-txt">tam.</span></button>
+          <button class="pal" data-code="get_crop()"><span class="pal-icon">&#127807;</span><span class="pal-txt">cultura</span></button>
+          <button class="pal" data-code='set_crop("milho")'><span class="pal-icon">&#127757;</span><span class="pal-txt">mudar</span></button>
+        </div>
+        <div class="palette-group-label">&#129302; Chapéu</div>
+        <div class="palette-row">
+          <button class="pal pal-hat-marrom" data-code='set_hat_color("marrom")'><span class="pal-icon">🤠</span><span class="pal-txt">marrom</span></button>
+          <button class="pal pal-hat-preto" data-code='set_hat_color("preto")'><span class="pal-icon">🤠</span><span class="pal-txt">preto</span></button>
+          <button class="pal pal-hat-vermelho" data-code='set_hat_color("vermelho")'><span class="pal-icon">🤠</span><span class="pal-txt">verm.</span></button>
+          <button class="pal pal-hat-azul" data-code='set_hat_color("azul")'><span class="pal-icon">🤠</span><span class="pal-txt">azul</span></button>
+          <button class="pal pal-hat-verde" data-code='set_hat_color("verde")'><span class="pal-icon">🤠</span><span class="pal-txt">verde</span></button>
+          <button class="pal pal-hat-amarelo" data-code='set_hat_color("amarelo")'><span class="pal-icon">🤠</span><span class="pal-txt">amar.</span></button>
+          <button class="pal pal-hat-branco" data-code='set_hat_color("branco")'><span class="pal-icon">🤠</span><span class="pal-txt">bran.</span></button>
+          <button class="pal pal-hat-rosa" data-code='set_hat_color("rosa")'><span class="pal-icon">🤠</span><span class="pal-txt">rosa</span></button>
+        </div>
+        <div class="palette-group-label">&#128257; Templates</div>
+        <div class="palette-row">
+          <button class="pal pal-template" data-code="for i in range(get_world_size()):\n    "><span class="pal-icon">&#128257;</span><span class="pal-txt">for loop</span></button>
+          <button class="pal pal-template" data-code="if can_harvest():\n    harvest()"><span class="pal-icon">&#10067;</span><span class="pal-txt">if colher</span></button>
+          <button class="pal pal-template" data-code="while True:\n    move()"><span class="pal-icon">&#8734;</span><span class="pal-txt">while</span></button>
+        </div>
+        <div class="palette-group-label">&#10024; Animações</div>
+        <div class="palette-row">
+          <button class="pal pal-template" data-code="fly()\nspin()\ndive()"><span class="pal-icon">🌪️</span><span class="pal-txt">dança</span></button>
+          <button class="pal pal-template" data-code="for i in range(3):\n    flip()\n    wait()"><span class="pal-icon">&#128943;</span><span class="pal-txt">3 flips</span></button>
+          <button class="pal pal-template" data-code="fly()\nfor i in range(3):\n    spin()\ndive()"><span class="pal-icon">💫</span><span class="pal-txt">vortex</span></button>
+          <button class="pal pal-template" data-code="for i in range(4):\n    flip()\n    spin()"><span class="pal-icon">🎪</span><span class="pal-txt">circo</span></button>
+          <button class="pal pal-template" data-code="fly()\nwait()\nfly()\nwait()\ndive()"><span class="pal-icon">⬆️⬇️</span><span class="pal-txt">pulso</span></button>
+        </div>
+      </div>
+
+      <!-- Loja da Fazenda -->
+      <div class="palette-group-label">&#127978; Loja da Fazenda</div>
+      <div id="shop-items">
+        <div class="shop-item">
+          <div class="shop-item-icon">&#127866;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Silo de Armazenamento</div>
+            <div class="shop-item-desc">Coloque FORA da fazenda</div>
+          </div>
+          <button class="shop-buy-btn" id="buy-silo-btn" disabled>
+            <span class="shop-cost">&#129689; 15</span>
+            <span class="shop-buy-lbl">Comprar</span>
+          </button>
+        </div>
+
+        <div class="shop-item">
+          <div class="shop-item-icon">&#127807;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name" id="expand-name">Expandir Fazenda</div>
+            <div class="shop-item-desc" id="expand-desc">Aumente o tamanho do plantio</div>
+            <div class="shop-xp-bar"><div id="expand-xp-fill"></div></div>
+            <div class="shop-xp-lbl" id="expand-xp-lbl">XP: 0/3</div>
+          </div>
+          <button class="shop-buy-btn" id="buy-expand-btn" disabled>
+            <span class="shop-cost" id="expand-cost">&#129689; 5</span>
+            <span class="shop-buy-lbl">Expandir</span>
+          </button>
+        </div>
+
+        <div class="shop-item">
+          <div class="shop-item-icon">&#9889;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Velocidade Permanente</div>
+            <div class="shop-item-desc" id="speed-desc">Aumenta o nível máximo do slider</div>
+            <div class="shop-xp-bar"><div id="speed-xp-fill"></div></div>
+            <div class="shop-xp-lbl" id="speed-xp-lbl">Nível 1/10 │ XP: 0/5</div>
+          </div>
+          <button class="shop-buy-btn" id="buy-speed-btn" disabled>
+            <span class="shop-cost" id="speed-cost">&#129689; 100</span>
+            <span class="shop-buy-lbl">Upgrade</span>
+          </button>
+        </div>
+        <div class="shop-item">
+          <div class="shop-item-icon">&#128267;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Bateria do Drone</div>
+            <div class="shop-item-desc" id="battery-desc">Aumenta a capacidade e autonomia</div>
+            <div class="shop-xp-bar"><div id="battery-xp-fill"></div></div>
+            <div class="shop-xp-lbl" id="battery-xp-lbl">Nível 1/10 │ Cap. 100 │ XP: 0/4</div>
+          </div>
+          <button class="shop-buy-btn" id="buy-battery-btn" disabled>
+            <span class="shop-cost" id="battery-cost">&#129689; 80</span>
+            <span class="shop-buy-lbl">Upgrade</span>
+          </button>
+        </div>
+
+        <div class="shop-item">
+          <div class="shop-item-icon">&#128029;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Colmeia <span class="boost-time" id="hive-lbl">Colmeias 1/6</span></div>
+            <div class="shop-item-desc" id="hive-desc">Mais abelhas = plantas crescem mais rápido</div>
+          </div>
+          <button class="shop-buy-btn" id="buy-hive-btn">
+            <span class="shop-cost" id="hive-cost">&#129689; 150</span>
+            <span class="shop-buy-lbl">Comprar</span>
+          </button>
+        </div>
+
+        <div class="shop-item">
+          <div class="shop-item-icon">&#128760;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Drone Auxiliar</div>
+            <div class="shop-item-desc" id="helper-desc">Companheiro voador que segue seu drone</div>
+          </div>
+          <button class="shop-buy-btn" id="buy-helper-btn">
+            <span class="shop-cost" id="helper-cost">&#129689; 250</span>
+            <span class="shop-buy-lbl">Comprar</span>
+          </button>
+        </div>
+
+        <div class="shop-item">
+          <div class="shop-item-icon">&#129302;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Drone Autônomo</div>
+            <div class="shop-item-desc" id="droneb-desc">Segundo drone com script próprio (mover_b, colher_b...)</div>
+          </div>
+          <button class="shop-buy-btn" id="buy-droneb-btn">
+            <span class="shop-cost" id="droneb-cost">&#129689; 1000</span>
+            <span class="shop-buy-lbl">Comprar</span>
+          </button>
+        </div>
+        <div class="palette-group-label" style="margin-top:10px;">&#128293; Boosts Temporários</div>
+
+        <div class="shop-item boost-item" data-boost="speed">
+          <div class="shop-item-icon">&#128640;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Turbo <span class="boost-time">2× vel • 30s</span></div>
+            <div class="shop-item-desc">Dobra a velocidade do drone</div>
+            <div class="boost-timer-bar"><div class="boost-timer-fill" id="boost-speed-fill"></div></div>
+            <div class="boost-timer-lbl" id="boost-speed-lbl">Inativo</div>
+          </div>
+          <button class="shop-buy-btn boost-buy-btn" id="buy-boost-speed" disabled>
+            <span class="shop-cost">&#129689; 50</span>
+            <span class="shop-buy-lbl">Ativar</span>
+          </button>
+        </div>
+
+        <div class="shop-item boost-item" data-boost="grow">
+          <div class="shop-item-icon">&#127793;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Crescimento Rápido <span class="boost-time">2× • 60s</span></div>
+            <div class="shop-item-desc">Culturas crescem em metade do tempo</div>
+            <div class="boost-timer-bar"><div class="boost-timer-fill" id="boost-grow-fill"></div></div>
+            <div class="boost-timer-lbl" id="boost-grow-lbl">Inativo</div>
+          </div>
+          <button class="shop-buy-btn boost-buy-btn" id="buy-boost-grow" disabled>
+            <span class="shop-cost">&#129689; 80</span>
+            <span class="shop-buy-lbl">Ativar</span>
+          </button>
+        </div>
+
+        <div class="shop-item boost-item" data-boost="sell">
+          <div class="shop-item-icon">&#128176;</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">Bônus de Venda <span class="boost-time">+50% • 60s</span></div>
+            <div class="shop-item-desc">Preços de venda aumentam 50%</div>
+            <div class="boost-timer-bar"><div class="boost-timer-fill" id="boost-sell-fill"></div></div>
+            <div class="boost-timer-lbl" id="boost-sell-lbl">Inativo</div>
+          </div>
+          <button class="shop-buy-btn boost-buy-btn" id="buy-boost-sell" disabled>
+            <span class="shop-cost">&#129689; 100</span>
+            <span class="shop-buy-lbl">Ativar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minimap fixo na base -->
+    <div id="minimap-section">
+      <div class="sec-header" style="display:flex;align-items:center;justify-content:space-between;padding:4px 10px;">
+        <span>&#128205; Mapa <span id="robot-pos" style="color:#f9c740;font-weight:bold;font-size:.65rem"></span></span>
+        <span id="cam-mini-btns" style="display:flex;gap:4px;">
+          <button class="cam-btn" id="preset-iso" style="padding:2px 7px;font-size:.65rem;">&#127968;</button>
+          <button class="cam-btn" id="preset-top" style="padding:2px 7px;font-size:.65rem;">&#11014;</button>
+          <button class="cam-btn follow-on" id="btn-follow" style="padding:2px 7px;font-size:.65rem;">&#128249;</button>
+        </span>
+      </div>
+      <canvas id="minimap-canvas" width="220" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Editor de código ── -->
+  <div id="editor-panel" class="float-panel">
+    <div id="editor-titlebar" class="drag-handle">
+      <span>&#128187; Editor de Código</span>
+      <div id="editor-controls">
+        <button id="min-btn" title="Minimizar">&#8722;</button>
+      </div>
+    </div>
+
+    <div id="editor-body">
+      <div id="editor-toolbar">
+        <button id="run-btn">&#9654; Executar <kbd>Ctrl+↵</kbd></button>
+        <button id="stop-btn" disabled>&#9209; Parar <kbd>Esc</kbd></button>
+        <button id="reset-btn">&#8635; Reset</button>
+      </div>
+
+      <div id="script-bar">
+        <select id="script-select" title="Scripts salvos"></select>
+        <button id="script-new-btn"    title="Novo script">&#43;</button>
+        <button id="script-save-btn"   title="Salvar script atual">&#128190;</button>
+        <button id="script-rename-btn" title="Renomear script">&#9998;</button>
+        <button id="script-delete-btn" title="Excluir script">&#128465;</button>
+      </div>
+
+      <!-- Editor de código — grande -->
+      <textarea id="code-editor" spellcheck="false"># Clique nos botoes da paleta ou escreva aqui
+# Ctrl+Enter = Executar | Esc = Parar
+
+for i in range(get_world_size()):
+    till()
+    plant()
+    move()</textarea>
+
+      <!-- Console fixo na base do editor -->
+      <div id="console-output">
+        <div class="sec-header">&#128196; Console / Log</div>
+        <div id="console-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FAB de ajuda / comandos ── -->
+  <button id="fab-help" title="Ajuda e comandos">?</button>
+
+  <!-- ── Hint de posicionamento do Silo ── -->
+  <div id="placement-hint">
+    <div>&#127866; Clique em um tile da fazenda para posicionar o silo</div>
+    <div style="font-size:.72rem;opacity:.65;margin-top:3px;">[ESC] para cancelar</div>
+  </div>
+
+  <!-- ── Menu contextual do Silo (clique no silo) ── -->
+  <div id="silo-context-menu">
+    <div class="silo-menu-header">&#127866; Silo</div>
+    <button id="silo-move-btn" class="silo-menu-btn">
+      <span>&#128205; Mover</span>
+      <span class="menu-cost">grátis</span>
+    </button>
+    <button id="silo-sell-btn" class="silo-menu-btn sell">
+      <span>&#128176; Vender</span>
+      <span class="menu-cost">+10 🪙</span>
+    </button>
+  </div>
+
+  <!-- ── Modal do Silo ── -->
+  <div id="silo-modal" class="hidden">
+    <div id="silo-modal-box">
+      <div id="silo-modal-header">
+        <span>&#127866; Silo de Armazenamento</span>
+        <button id="silo-modal-close" title="Fechar">&#10005;</button>
+      </div>
+      <div class="silo-section">
+        <div class="silo-section-title">&#128230; Compartimento do Drone</div>
+        <div id="drone-inv-list"></div>
+        <div class="silo-row total"><span>Total:</span> <strong id="drone-inv-total">0</strong> / <span id="drone-inv-cap">8</span></div>
+      </div>
+      <button id="silo-unload-btn">&#128230; Esvaziar Compartimento</button>
+      <div class="silo-section">
+        <div class="silo-section-title">&#127866; Estoque do Silo &mdash; Vender</div>
+
+        <div id="silo-sell-list"></div>
+
+        <div class="silo-row total">
+          <span>Total armazenado:</span>
+          <strong id="silo-storage-total">0</strong>
+        </div>
+        <div class="silo-row total" style="color:#88ff88;">
+          <span>Valor total:</span>
+          <strong id="silo-storage-value">0 🪙</strong>
+        </div>
+
+        <button id="silo-sell-all-btn">&#128176; Vender Tudo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Painel de comandos/ajuda (toggle) ── -->
+  <div id="help-panel" class="float-panel hidden">
+    <div class="sec-header drag-handle" id="help-handle">&#128218; Referência de Comandos</div>
+    <div id="help-body">
+      <div class="help-section">
+        <div class="help-title">Movimento</div>
+        <div class="help-cmd"><code>move()</code> — avança 1 passo na direção atual</div>
+        <div class="help-cmd"><code>turn_left()</code> — gira 90° para a esquerda</div>
+        <div class="help-cmd"><code>turn_right()</code> — gira 90° para a direita</div>
+      </div>
+      <div class="help-section">
+        <div class="help-title">Ações</div>
+        <div class="help-cmd"><code>till()</code> — ara o solo do tile atual (EMPTY→SOIL)</div>
+        <div class="help-cmd"><code>plant()</code> — planta no solo arado (SOIL→SEED)</div>
+        <div class="help-cmd"><code>harvest()</code> — colhe se estiver pronto (READY→SOIL)</div>
+      </div>
+      <div class="help-section">
+        <div class="help-title">🤖 Drone Autônomo (Drone B)</div>
+        <div class="help-cmd"><code>mover_b()</code> — move o drone B 1 tile à frente</div>
+        <div class="help-cmd"><code>girar_esq_b()</code> / <code>girar_dir_b()</code></div>
+        <div class="help-cmd"><code>arar_b()</code> / <code>plantar_b()</code> / <code>colher_b()</code></div>
+        <div class="help-cmd" style="opacity:.7"><em>Disponível após comprar Drone Autônomo na loja.</em></div>
+      </div>
+      <div class="help-section">
+        <div class="help-title">Sensores (sem custo de tick)</div>
+        <div class="help-cmd"><code>can_harvest()</code> → <em>true/false</em></div>
+        <div class="help-cmd"><code>get_type()</code> → <em>"EMPTY" | "SOIL" | "SEED" | "SPROUT" | "GROWN" | "READY"</em></div>
+        <div class="help-cmd"><code>sense()</code> → tipo do tile à frente (ou "WALL")</div>
+        <div class="help-cmd"><code>get_x()</code> / <code>get_y()</code> → posição do drone</div>
+        <div class="help-cmd"><code>get_world_size()</code> → tamanho atual da fazenda</div>
+        <div class="help-cmd"><code>num_items()</code> → total de colheitas</div>
+        <div class="help-cmd"><code>get_crop()</code> → cultura atual <em>"milho" | "soja" | "algodao"</em></div>
+        <div class="help-cmd"><code>set_crop("soja")</code> → muda a cultura (se desbloqueada)</div>
+      </div>
+      <div class="help-section">
+        <div class="help-title">Culturas</div>
+        <div class="help-cmd">🌽 <code>milho</code> — disponível desde o início (8 ticks)</div>
+        <div class="help-cmd">🌿 <code>soja</code> — desbloqueia com <em>20 colheitas</em> (6 ticks)</div>
+        <div class="help-cmd">🤍 <code>algodao</code> — desbloqueia com <em>50 colheitas</em> (10 ticks)</div>
+      </div>
+      <div class="help-section">
+        <div class="help-title">Estágios de crescimento (8 ticks cada)</div>
+        <div class="stages-row">
+          <span class="stage"><span class="sw" style="background:#7a4520"></span>SOIL</span>
+          <span class="arrow">→</span>
+          <span class="stage"><span class="sw" style="background:#5a8830"></span>SEED</span>
+          <span class="arrow">→</span>
+          <span class="stage"><span class="sw" style="background:#3e8a28"></span>SPROUT</span>
+          <span class="arrow">→</span>
+          <span class="stage"><span class="sw" style="background:#286a18"></span>GROWN</span>
+          <span class="arrow">→</span>
+          <span class="stage"><span class="sw" style="background:#c8a020"></span>READY ✓</span>
+        </div>
+      </div>
+      <div class="help-section">
+        <div class="help-title">Exemplo completo</div>
+        <pre class="help-code">// Percorrer a fazenda em zigue-zague
+let size = get_world_size()
+for (let row = 0; row &lt; size; row++) {
+  for (let col = 0; col &lt; size; col++) {
+    if (get_type() === "SOIL") plant()
+    if (can_harvest()) harvest()
+    if (col &lt; size - 1) move()
+  }
+  turn_right()
+  move()
+  turn_right()
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Indicador de boosts ativos ── -->
+  <div id="boost-indicator"></div>
+
+  <!-- ── Modal genérico de prompt (nome) ── -->  <div id="prompt-modal" class="hidden">
+    <div id="prompt-modal-box">
+      <div id="prompt-modal-header">
+        <span id="prompt-modal-icon">&#128221;</span>
+        <span id="prompt-modal-title">Nome</span>
+      </div>
+      <div id="prompt-modal-body">
+        <p id="prompt-modal-message">Digite um nome:</p>
+        <input type="text" id="prompt-modal-input" maxlength="40" autocomplete="off" />
+        <div id="prompt-modal-error"></div>
+      </div>
+      <div id="prompt-modal-actions">
+        <button id="prompt-modal-cancel" class="pm-btn pm-cancel">Cancelar</button>
+        <button id="prompt-modal-ok"     class="pm-btn pm-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════ Menu Principal & Pausa ═══════════
+    (function(){
+      const main   = document.getElementById('main-menu');
+      const pause  = document.getElementById('pause-menu');
+      const subs   = ['menu-howto','menu-settings','menu-credits'].map(id=>document.getElementById(id));
+      const root   = document.body;
+      let inGame = false;
+
+      function hideSubs(){ subs.forEach(s=>s.classList.add('hidden')); }
+      function showSub(id){ hideSubs(); document.getElementById(id).classList.remove('hidden'); }
+      function startGame(){
+        main.classList.add('fade-out');
+        setTimeout(()=>{ main.classList.add('hidden'); main.classList.remove('fade-out'); }, 350);
+        inGame = true;
+        root.classList.add('playing');
+      }
+      function openPause(){
+        if(!inGame) return;
+        pause.classList.remove('hidden');
+      }
+      function closePause(){ pause.classList.add('hidden'); }
+      function quitToMenu(){
+        closePause();
+        hideSubs();
+        main.classList.remove('hidden');
+        inGame = false;
+        root.classList.remove('playing');
+      }
+
+      // delegação de cliques
+      document.addEventListener('click', (e)=>{
+        const btn = e.target.closest('[data-action]');
+        if(!btn) return;
+        const a = btn.dataset.action;
+        switch(a){
+          case 'play':          startGame(); break;
+          case 'howto':         showSub('menu-howto'); break;
+          case 'settings':      showSub('menu-settings'); break;
+          case 'credits':       showSub('menu-credits'); break;
+          case 'back':          hideSubs(); break;
+          case 'reset':
+            if(confirm('Apagar todo o save? Essa ação não pode ser desfeita.')){
+              try { localStorage.clear(); indexedDB.deleteDatabase('farmer-save'); } catch(_){}
+              location.reload();
+            }
+            break;
+          case 'resume':        closePause(); break;
+          case 'howto-pause':   closePause(); main.classList.remove('hidden'); showSub('menu-howto'); inGame=false; break;
+          case 'settings-pause':closePause(); main.classList.remove('hidden'); showSub('menu-settings'); inGame=false; break;
+          case 'quit':          quitToMenu(); break;
+        }
+      });
+
+      // ESC abre/fecha pausa
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === 'Escape'){
+          // não abrir se estiver digitando no editor / inputs
+          const tag = (document.activeElement && document.activeElement.tagName) || '';
+          if(tag === 'TEXTAREA' || tag === 'INPUT') return;
+          if(!inGame) return;
+          if(pause.classList.contains('hidden')) openPause();
+          else closePause();
+        }
+      });
+
+      // Tema escuro toggle (visual simples)
+      const dark = document.getElementById('menu-dark');
+      if(dark) dark.addEventListener('change', ()=>{
+        document.body.classList.toggle('light-theme', !dark.checked);
+      });
+    })();
+  </script>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
