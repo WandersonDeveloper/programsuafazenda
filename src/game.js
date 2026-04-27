@@ -365,7 +365,7 @@ buildTextures();
 
 // ─── Chão de grama (Poliigon PBR) ────────────────────────────────────────────
 const _loader = new THREE.TextureLoader();
-const _GP = './Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_';
+const _GP = './assets/textures/grass/2K/Poliigon_GrassPatchyGround_4585_';
 function _gTex(file, srgb) {
   const t = _loader.load(_GP + file, undefined, undefined,
     ()=>{ console.warn('Grass tex fallback:', file); });
@@ -388,7 +388,7 @@ grass.receiveShadow = true;
 scene.add(grass);
 
 // ─── Metal texture (Poliigon PBR) ─────────────────────────────────────────────
-const _MP = './Poliigon_MetalSteelBrushed_7174/2K/Poliigon_MetalSteelBrushed_7174_';
+const _MP = './assets/textures/metal/2K/Poliigon_MetalSteelBrushed_7174_';
 function _mTex(file, srgb) {
   const t = _loader.load(_MP + file, undefined, undefined,
     ()=>{ console.warn('Metal tex fallback:', file); });
@@ -997,7 +997,7 @@ let hatModel3D = null;
 async function loadHatModel() {
   return new Promise((resolve, reject) => {
     fbxLoader.load(
-      './chapeu/source/CHAPEU TESTE.fbx',
+      './assets/models/hat/source/CHAPEU TESTE.fbx',
       (fbx) => {
         fbx.scale.set(0.01, 0.01, 0.01); // Ajustar escala
         fbx.position.set(0, 0.15, 0); // Posição original
@@ -1209,7 +1209,7 @@ function buildProceduralTree() {
 async function loadTreeModel() {
   return new Promise((resolve, reject) => {
     fbxLoader.load(
-      './low_poly_tree/Lowpoly_tree_sample.fbx',
+      './assets/models/tree/Lowpoly_tree_sample.fbx',
       (fbx) => {
         // Calcular Y central de cada mesh para distinguir tronco (baixo) x folhas (alto)
         const meshInfo = [];
